@@ -1,21 +1,62 @@
+using Microsoft.AspNetCore.Mvc;
+using PedidosApp.API.Entities;
+using PedidosApp.API.Producers;
+using PedidosApp.API.Records;
+using PedidosApp.API.Repositories;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
-builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 builder.Services.AddOpenApi();
+builder.Services.AddScoped( //Configurando serviço para injeção de dependência
+ map => new PedidoRepository(
+ builder.Configuration.GetConnectionString("PedidosBD"))
+);
+
+builder.Services.AddScoped( //Configurando serviço para injeção de dependência
+ map => new MessageProducer(
+ builder.Configuration["RabbitMQ:Host"],
+ builder.Configuration["RabbitMQ:Queue"])
+);
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+app.MapOpenApi();
+app.UseSwagger();
+app.UseSwaggerUI();
+
+//ENDPOINT para cadastro de pedido
+app.MapPost("/api/pedidos", async (
+ [FromBody] PedidoRequest request,
+ PedidoRepository pedidoRepository,
+ MessageProducer messageProducer) =>
 {
-    app.MapOpenApi();
-}
+//capturar os dados do pedido
+var pedido = new Pedido
+{
+    Id = Guid.NewGuid(),
+    DataHora = DateTime.Now,
+    Cliente = request.Cliente,
+    Valor = request.Valor,
+    Detalhes = request.Detalhes
+};
 
-app.UseAuthorization();
+//gravar os dados no banco
+await pedidoRepository.Inserir(pedido);
 
-app.MapControllers();
+//enviar para a mensageria
+messageProducer.SendMessage(pedido);
+
+//retornando os dados do pedido cadastrado
+return Results.Created("/api/pedidos", new PedidoResponse(
+pedido.Id.Value,
+pedido.Cliente,
+pedido.Valor,
+pedido.DataHora.Value,
+pedido.Detalhes
+));
+})
+.Produces<PedidoResponse>(StatusCodes.Status201Created);
 
 app.Run();

@@ -15,8 +15,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Repositories\" />
-    <Folder Include="Records\" />
     <Folder Include="Producers\" />
   </ItemGroup>
 
