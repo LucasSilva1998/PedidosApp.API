@@ -1,0 +1,32 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver_eventdriven
+    ports:
+      - "1434:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "Coti@2025"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    networks:
+      - event_driven_network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq_eventdriven
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: "guest"
+      RABBITMQ_DEFAULT_PASS: "guest"
+    networks:
+      - event_driven_network
+
+volumes:
+  sqlserver_data:
+
+networks:
+  event_driven_network:
+    driver: bridge
